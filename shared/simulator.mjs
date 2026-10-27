@@ -1,3 +1,4 @@
+import { temperatureState } from './alerts.mjs';
 /**
  * Framework-independent, deterministic simulator shared by Node and the browser.
  * All telemetry is synthetic. Histories are bounded to 24 hours; nothing is sent
@@ -47,6 +48,7 @@ export class SimulationEngine {
     this.alerts = [];
     this.sequence = 0;
     this.configure({ count });
+    this._seedEvents();
   }
 
   _createMachine(index) {
@@ -123,7 +125,13 @@ export class SimulationEngine {
     if (!DEMO_INTERVALS.includes(intervalMs)) throw new RangeError('更新頻率只允許 1、3、5、10 秒');
     if (typeof paused !== 'boolean') throw new TypeError('paused must be boolean');
     const oldCount = this.machines.length;
-    for (let i = oldCount; i < count; i++) this.machines.push(this._createMachine(i));
+    for (let i = oldCount; i < count; i++) {
+      const machine = this._createMachine(i);
+      this.machines.push(machine);
+      if (machine.alarmState === 'critical') {
+        this._pushEvent(machine, 'critical', '溫度過高，已超過上限', machine.temperature, true);
+      }
+    }
     if (count < oldCount) {
       const removed = this.machines.splice(count);
       removed.forEach(m => { this.histories.delete(m.id); this.realtime.delete(m.id); });
@@ -161,9 +169,45 @@ export class SimulationEngine {
     return this.snapshot();
   }
 
+  _pushEvent(machine, level, message, value, active = false, at = this.now, unit = '°C') {
+    const event = { id: `evt-${++this.sequence}`, machineId: machine.id, machineName: machine.name,
+      timestamp: at, level, message, value, unit, threshold: machine.threshold, active,
+      resolvedAt: null };
+    this.alerts.unshift(event);
+    // Never evict an active alarm to make room for old informational messages.
+    const activeEvents = this.alerts.filter(a => a.active);
+    const otherEvents = this.alerts.filter(a => !a.active).sort((a, b) => b.timestamp - a.timestamp);
+    this.alerts = [...activeEvents, ...otherEvents.slice(0, 500 - activeEvents.length)]
+      .sort((a, b) => b.timestamp - a.timestamp || Number(b.id.slice(4)) - Number(a.id.slice(4)));
+    return event;
+  }
+
+  _seedEvents() {
+    const [a, b, c] = this.machines;
+    const warning = this._pushEvent(b, 'warning', '溫度接近上限', 78.1, false, this.now - 12 * 60_000);
+    warning.resolvedAt = this.now;
+    this._pushEvent(a, 'info', '今日累計產量達到 300 件', 300, false, this.now - 42 * 60_000, '件');
+    this._pushEvent(c, 'info', '由運轉切換為待機', null, false, this.now - 65 * 60_000, '');
+    this._pushEvent(b, 'info', '上一筆異常已解除', 68.4, false, this.now - 90 * 60_000);
+    const prior = this._pushEvent(b, 'critical', '溫度過高，已超過上限', 88.2, false, this.now - 105 * 60_000);
+    prior.resolvedAt = this.now - 90 * 60_000;
+  }
+
   _evaluate(machine) {
-    // Threshold state machine is introduced in the alerts feature commit.
-    machine.status = machine.temperature >= machine.threshold ? 'error' : machine.operating ? 'running' : 'idle';
+    const previous = machine.alarmState;
+    const next = temperatureState(machine.temperature, machine.threshold, previous);
+    if (next !== previous) {
+      for (const event of this.alerts) {
+        if (event.machineId === machine.id && event.active) {
+          event.active = false; event.resolvedAt = this.now;
+        }
+      }
+      if (next === 'critical') this._pushEvent(machine, 'critical', '溫度過高，已超過上限', machine.temperature, true);
+      else if (next === 'warning') this._pushEvent(machine, 'warning', '溫度接近上限', machine.temperature, true);
+      else this._pushEvent(machine, 'info', '溫度已恢復正常', machine.temperature);
+    }
+    machine.alarmState = next;
+    machine.status = next === 'critical' ? 'error' : machine.operating ? 'running' : 'idle';
   }
 
   scenario(machineId, action, at = Date.now()) {
