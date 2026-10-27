@@ -1,0 +1,19 @@
+{
+  "name": "machine-dashboard-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "繁體中文機台即時看板：響應式網頁、PWA、模擬 REST/SSE 後端與可測試警示規則。",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "start": "node scripts/build.mjs && node server/index.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:e2e": "python3 tests/e2e.py",
+    "check": "npm test && npm run build",
+    "preview": "node server/index.mjs",
+    "native:prepare": "node scripts/native-prepare.mjs"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,12 @@
+import { cp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { resolve } from 'node:path';
+const root = resolve(import.meta.dirname, '..');
+await rm(resolve(root, 'dist'), { recursive: true, force: true });
+await mkdir(resolve(root, 'dist'), { recursive: true });
+await cp(resolve(root, 'public'), resolve(root, 'dist'), { recursive: true });
+await cp(resolve(root, 'src'), resolve(root, 'dist/src'), { recursive: true });
+await cp(resolve(root, 'shared'), resolve(root, 'dist/shared'), { recursive: true });
+let html = await readFile(resolve(root,'public/index.html'), 'utf8');
+html = html.replace('__ROBOTS__','noindex,follow');
+await writeFile(resolve(root,'dist/index.html'), html);
+console.log('Built dist/');
