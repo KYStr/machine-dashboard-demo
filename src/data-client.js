@@ -10,7 +10,7 @@ export class DemoDataClient {
     this.events = null;
     this.timer = null;
     this.closed = false;
-    this.apiBase = new URL('./api/', location.href).href;
+    this.apiBase = ['http:', 'https:'].includes(location.protocol) ? new URL('./api/', location.href).href : ''; 
     this.lastSnapshot = null;
   }
   async connect() {

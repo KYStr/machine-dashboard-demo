@@ -1,6 +1,7 @@
 /** Built-in Node HTTP server: bounded, in-memory mock REST + SSE API. */
 import http from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { readFile, stat, realpath } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { SimulationEngine } from '../shared/simulator.mjs';
@@ -78,10 +79,19 @@ export function createDemoServer({ engine = new SimulationEngine(), staticRoot =
         res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end('<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><title>找不到頁面</title><h1>404 · 找不到頁面</h1><a href="/">回到機台看板</a></html>');
       }
+      const canonicalFile = await realpath(filePath);
+      const canonicalRoot = await realpath(staticRoot);
+      if (!canonicalFile.startsWith(canonicalRoot + sep)) return sendJson(res, 403, { error: 'Forbidden' });
       res.setHeader('Content-Type', TYPES[extname(filePath)] || 'application/octet-stream');
       res.setHeader('Cache-Control', pathname.endsWith('sw.js') || pathname.endsWith('.html') ? 'no-cache' : 'public, max-age=300');
       if (req.method === 'HEAD') return res.end();
-      res.end(await readFile(filePath));
+      const content = await readFile(filePath);
+      if (extname(filePath) === '.html') {
+        const hashes = [...content.toString('utf8').matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)]
+          .map(match => `'sha256-${createHash('sha256').update(match[1]).digest('base64')}'`);
+        if (hashes.length) res.setHeader('Content-Security-Policy', String(res.getHeader('Content-Security-Policy')).replace("script-src 'self'", `script-src 'self' ${hashes.join(' ')}`));
+      }
+      res.end(content);
     } catch (error) {
       if (!res.headersSent) sendJson(res, error instanceof RangeError || error instanceof TypeError || error instanceof SyntaxError || error instanceof URIError ? 400 : 500, { error: error.message || 'Server error' });
       else res.end();

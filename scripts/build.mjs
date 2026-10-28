@@ -11,7 +11,8 @@ if (rawSiteUrl) {
   const url = new URL(rawSiteUrl);
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error('SITE_URL must be a public HTTP(S) URL with no credentials, query, or hash.');
   if (url.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(url.hostname)) throw new Error('Public SITE_URL must use HTTPS.');
-  siteUrl = url.href.endsWith('/') ? url.href : `${url.href}/`;
+  url.pathname = url.pathname.replace(/\/+$/, '') + '/';
+  siteUrl = url.href;
 }
 const xmlEscape = s => s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 await rm(dist, { recursive: true, force: true });
@@ -29,7 +30,7 @@ for (const page of ['index.html', 'about.html']) {
     '<meta property="og:type" content="website">', '<meta property="og:locale" content="zh_TW">',
     `<meta property="og:title" content="${xmlEscape(title)}">`, `<meta property="og:description" content="${xmlEscape(description)}">`,
     '<meta property="og:site_name" content="Machine Signal · 機台訊號即時看板">',
-    ...(pageUrl ? [`<meta property="og:url" content="${xmlEscape(pageUrl)}">`, `<meta property="og:image" content="${xmlEscape(new URL('og-image.png', siteUrl).href)}">`, '<meta property="og:image:width" content="1200">', '<meta property="og:image:height" content="630">', '<meta property="og:image:alt" content="機台訊號即時看板，使用模擬資料的桌面版預覽">'] : []),
+    ...(pageUrl ? [`<meta property="og:url" content="${xmlEscape(pageUrl)}">`, `<meta property="og:image" content="${xmlEscape(new URL('og-image.png', siteUrl).href)}">`, '<meta property="og:image:width" content="1200">', '<meta property="og:image:height" content="630">', '<meta property="og:image:alt" content="機台訊號即時看板，使用模擬資料的狀態示意圖">'] : []),
     '<meta name="twitter:card" content="summary_large_image">',
     `<meta name="twitter:title" content="${xmlEscape(title)}">`, `<meta name="twitter:description" content="${xmlEscape(description)}">`,
     ...(pageUrl ? [`<meta name="twitter:image" content="${xmlEscape(new URL('og-image.png', siteUrl).href)}">`] : []),
@@ -62,7 +63,8 @@ for (const file of moduleOrder) {
   bundle += `\n// ---- ${file} ----\n${source}\n`;
 }
 let standalone = await readFile(resolve(dist, 'index.html'), 'utf8');
-const css = await readFile(resolve(root, 'src/styles.css'), 'utf8');
+const css = (await readFile(resolve(root, 'src/styles-base.css'), 'utf8')) + '\n' +
+  (await readFile(resolve(root, 'src/styles.css'), 'utf8')).replace('@import url("./styles-base.css");', '');
 const iconSvg = await readFile(resolve(root, 'public/icons/icon.svg'));
 standalone = standalone.replace(/<link rel="(?:manifest|apple-touch-icon|canonical)"[^>]*>/g, '')
   .replace(/<link rel="icon"[^>]*>/, `<link rel="icon" href="data:image/svg+xml;base64,${iconSvg.toString('base64')}">`)

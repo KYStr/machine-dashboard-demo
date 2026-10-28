@@ -1,4 +1,4 @@
-/** Lightweight SVG charts: real coordinates, visible thresholds, no chart CDN. */
+/** Lightweight accessible SVG charts: numeric axes, visible thresholds, no chart CDN. */
 const CHART_COLORS = ['#246bfd', '#e94061', '#0eaa9e', '#9564df', '#d88b20', '#1f9dc1'];
 let chartSequence = 0;
 export const escapeHtml = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -41,7 +41,7 @@ export function lineChart(series, { metric = 'temperature', width = 700, height 
   const x = time => left + (time - from) / Math.max(1, to - from) * plotW;
   const y = value => top + (1 - value / scaleMax) * plotH;
   const unique = ++chartSequence;
-  const fontSize = mini ? 8 : w < 450 ? 9 : 11;
+  const fontSize = mini ? 9 : w < 450 ? 10 : 11;
   const rows = mini ? 3 : 4;
   let grid = '';
   for (let i = 0; i <= rows; i++) {
@@ -54,7 +54,7 @@ export function lineChart(series, { metric = 'temperature', width = 700, height 
     const xpos = x(t);
     grid += `<line x1="${xpos}" y1="${top}" x2="${xpos}" y2="${h - bottom}" stroke="var(--line)"/><text x="${xpos}" y="${h - 9}" text-anchor="${i === 0 ? 'start' : i === ticks ? 'end' : 'middle'}" fill="var(--muted)" font-size="${fontSize}">${chartTime(t)}</text>`;
   }
-  const defs = series.map((s, i) => `<linearGradient id="area-${unique}-${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${colorOverride || seriesColor(s.id)}" stop-opacity=".14"/><stop offset="100%" stop-color="${colorOverride || seriesColor(s.id)}" stop-opacity=".015"/></linearGradient>`).join('');
+  const defs = series.map((s, i) => `<linearGradient id="area-${unique}-${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${colorOverride || seriesColor(s.id)}" stop-opacity=".075"/><stop offset="100%" stop-color="${colorOverride || seriesColor(s.id)}" stop-opacity=".005"/></linearGradient>`).join('');
   const paths = series.map((s, i) => {
     const color = colorOverride || seriesColor(s.id);
     const d = s.points.map((p, j) => `${j ? 'L' : 'M'}${x(p.t).toFixed(2)},${y(p.value).toFixed(2)}`).join(' ');

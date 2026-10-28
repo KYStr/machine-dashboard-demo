@@ -95,8 +95,16 @@ export class SimulationEngine {
     this.histories.set(machine.id, points);
     const recent = [];
     for (let i = 120; i >= 0; i--) {
-      const past = points[points.length - 1 - Math.ceil(i / 12)];
-      recent.push({ ...past, t: this.now - i * 5000 });
+      const position = points.length - 1 - i / 12;
+      const lower = Math.floor(position);
+      const fraction = position - lower;
+      const before = points[lower], after = points[Math.min(lower + 1, points.length - 1)];
+      const interpolate = key => before[key] + (after[key] - before[key]) * fraction;
+      recent.push({ t: this.now - i * 5000,
+        temperature: roundOne(interpolate('temperature') + (jitter() - 0.5) * 0.65),
+        rpm: machine.operating ? Math.round(interpolate('rpm') + (jitter() - 0.5) * 35) : 0,
+        output: machine.operating ? roundOne(Math.max(0, interpolate('output') + (jitter() - 0.5) * 1.2)) : 0,
+      });
     }
     recent[recent.length - 1] = this._point(machine);
     this.realtime.set(machine.id, recent);
