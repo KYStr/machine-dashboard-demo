@@ -54,3 +54,39 @@ test('malformed JSON and oversized bodies are rejected', async () => {
   assert.equal((await fetch(base + '/api/demo/config', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{' })).status, 400);
   assert.equal((await post('/api/demo/config', { count:'x'.repeat(9000) })).status, 400);
 });
+test('live SSE stream actually broadcasts subsequent simulation ticks', async () => {
+  const liveEngine = new SimulationEngine();
+  liveEngine.configure({ intervalMs: 1000 });
+  const liveServer = createDemoServer({ engine: liveEngine });
+  await new Promise(r => liveServer.listen(0, '127.0.0.1', r));
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), 6000);
+  try {
+    const response = await fetch(`http://127.0.0.1:${liveServer.address().port}/api/events`, { signal: controller.signal });
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffered = '';
+    async function nextSnapshot() {
+      for (;;) {
+        const boundary = buffered.indexOf('\n\n');
+        if (boundary >= 0) {
+          const packet = buffered.slice(0, boundary);
+          buffered = buffered.slice(boundary + 2);
+          const line = packet.split('\n').find(s => s.startsWith('data: '));
+          if (line) return JSON.parse(line.slice(6));
+        } else {
+          const { value, done } = await reader.read();
+          if (done) throw new Error('SSE ended before a subsequent snapshot');
+          buffered += decoder.decode(value, { stream: true });
+        }
+      }
+    }
+    const first = await nextSnapshot();
+    const second = await nextSnapshot();
+    assert.ok(second.revision > first.revision);
+    assert.ok(second.generatedAt > first.generatedAt);
+    assert.notDeepEqual(second.machines[0].recent, first.machines[0].recent);
+  } finally {
+    clearTimeout(deadline); controller.abort(); await liveServer.stopDemo();
+  }
+});
