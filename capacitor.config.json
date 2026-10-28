@@ -1,0 +1,8 @@
+{
+  "appId": "dev.demo.machinedashboard",
+  "appName": "機台訊號看板",
+  "webDir": "dist",
+  "backgroundColor": "#f5f8fc",
+  "server": { "androidScheme": "https" },
+  "ios": { "contentInset": "automatic" }
+}

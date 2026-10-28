@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5f8fc"><meta name="robots" content="__ROBOTS__">
+<meta name="description" content="了解機台訊號即時看板的功能與架構：模擬即時訊號、溫度門檻警示、一小時及一天歷史、多機台響應式設計、PWA 與 App 打包方向。">
+<title>關於機台即時看板｜功能、架構與模擬資料說明</title>
+<!-- SEO_HEAD -->
+<link rel="icon" type="image/svg+xml" href="./icons/icon.svg"><link rel="apple-touch-icon" href="./icons/apple-touch-icon.png"><link rel="manifest" href="./manifest.webmanifest"><link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="./"><img src="./icons/icon-192.png" width="42" height="42" alt=""><span class="brand-title">機台訊號即時看板 <small>公開版</small></span></a><a class="button primary" href="./">開啟看板</a></header>
+<main class="about-content">
+<p class="eyebrow">ABOUT THIS DEMO</p><h1>把每台設備的狀態，變成一眼可讀的資訊。</h1><p class="about-lead">Machine Dashboard Demo 是一個使用模擬資料的公開工業監控範例。它將機台狀態、即時折線圖、門檻警示與歷史查詢，整合成同時適合桌面與手機的介面。</p>
+<section><h2>這個看板可以做什麼？</h2><p>預設顯示三台機台，分別展示運轉中、待機與異常。你可以在展示控制台切換成 12、30 或 60 台，利用關鍵字與狀態篩選快速找到設備，並切換卡片或列表檢視。</p><p>每台機台包含溫度（°C）、主軸轉速（RPM）、今日累計產量（件）與產出速率（件／分）。桌面卡片顯示多個即時圖表，手機使用精簡數值與走勢，點入後可看完整機台詳情。</p></section>
+<section><h2>異常如何被記錄？</h2><p>溫度達到門檻會標示紅色並產生警示事件；接近門檻時顯示警告。模擬器使用狀態轉換與回復緩衝，避免同一筆高溫每次更新都重複記錄。溫度回復後，既有警示會自動標示已解除，事件紀錄仍保留。</p><p>你可以在「展示控制台」選取機台，按「模擬高溫」或「恢復正常」，實際觀察數值、狀態與事件清單的變化。這些操作只影響模擬器，不會控制任何實體機台。</p></section>
+<section><h2>可以查看哪些歷史？</h2><p>歷史趨勢提供最近一小時與最近一天。溫度、轉速及產出速率可以切換，最多同時比較六台機台，並匯出帶有模擬來源標記的 CSV。圖表支援指標移動或方向鍵查看數值，亦提供文字數值表。</p><p>歷史資料由可重現的模擬器預先建立，並持續加入當前數據。歷史保留約 24 小時；非真實工廠紀錄。預先產生的速率曲線和今日累計初始值是獨立示範種子，不代表可稽核的生產帳。</p></section>
+<section><h2>網站、PWA 與手機 App</h2><p>此專案採用響應式排版，包含手機安全區與底部導覽。網站建置含 Web App Manifest、應用程式圖示及離線快取設定。透過支援的瀏覽器與 HTTPS 網站可加入主畫面；實際安裝方式會依作業系統與瀏覽器而不同。</p><p>專案另附 Capacitor 設定與打包指引，可將相同網頁資源放入 Android／iOS 原生容器。這份範例不含已簽章 APK、IPA 或 App Store 上架成果；原生建置需要對應 SDK、IDE 與開發者簽章。</p></section>
+<section><h2>架構與資料邊界</h2><p>畫面由原生 JavaScript 模組與 CSS 組成；圖表以 SVG 呈現。資料層透過單一介面讀取訊號：在 Node.js 服務上使用 REST 與 Server-Sent Events，靜態網站及單檔預覽使用同一套瀏覽器內模擬引擎。</p><p>Node 模式的多個瀏覽器會看到同一服務實例的模擬狀態；靜態模式每個裝置獨立運行。資料目前保存在記憶體，重啟模擬器會重建，並未串接資料庫、MQTT、OPC UA、PLC 或真實工廠。</p></section>
+<section><h2>公開版與隱私</h2><p>本範例不要求登入，不使用追蹤分析服務，不向外部平台傳送機台資料。只有外觀與檢視偏好會保存在目前瀏覽器。介面內沒有真實工廠名稱、機密製程或個人資料。</p><p>此專案是功能與介面展示，不是安全關鍵工業監控系統。若改接真實設備，需要另行完成身分認證、授權、隔離、持久化、稽核、備援與安全評估。</p></section>
+<a href="./" class="button primary">返回即時看板</a>
+<footer class="site-footer"><p>Machine Signal / DEMO · 所有數據均為模擬。</p></footer>
+</main>
+</body></html>
