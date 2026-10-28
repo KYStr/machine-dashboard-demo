@@ -9,6 +9,7 @@ SSE reconnection or service-worker installation; those are explicitly skipped.
 from __future__ import annotations
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -16,7 +17,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import urlopen
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, expect
 
 ROOT = Path(__file__).resolve().parents[1]
 ARTIFACTS = ROOT / "artifacts"
@@ -51,13 +52,13 @@ def configure(page, count=None, interval=None, paused=None) -> None:
     open_settings(page)
     if count is not None:
         page.select_option("#demo-count", str(count))
-        page.wait_for_function("!document.querySelector('#demo-count').disabled")
+        expect(page.locator("#demo-count")).to_be_enabled()
     if interval is not None:
         page.select_option("#demo-interval", str(interval))
     if paused is not None:
         page.locator("#demo-paused").set_checked(paused)
     page.locator("#settings-form [type=submit]").click()
-    page.wait_for_function("!document.querySelector('#settings-dialog').open")
+    page.locator("#settings-dialog").wait_for(state="hidden")
     page.wait_for_timeout(160)
 
 
@@ -65,7 +66,7 @@ def run_scenario(page, action: str) -> None:
     open_settings(page)
     page.select_option("#scenario-machine", "MC-001")
     page.locator("#trigger-alert" if action == "hot" else "#resolve-alert").click()
-    page.wait_for_function("!document.querySelector('#settings-dialog').open")
+    page.locator("#settings-dialog").wait_for(state="hidden")
 
 
 try:
@@ -150,16 +151,16 @@ try:
         check("Dialog supports Escape and closes", not page.locator("#detail-dialog").is_visible())
 
         page.locator('[data-range="24h"]').click()
-        page.wait_for_function("document.querySelector('#chart-period').textContent.includes('約 5 分鐘')")
+        expect(page.locator("#chart-period")).to_contain_text("約 5 分鐘")
         check("History switches to the previous 24 hours", "最近一天" in page.locator("#history-chart svg").get_attribute("aria-label"))
         page.select_option("#metric-select", "rpm")
-        page.wait_for_function("document.querySelector('#history-chart svg').getAttribute('aria-label').includes('轉速')")
+        expect(page.locator("#history-chart svg")).to_have_attribute("aria-label", re.compile("轉速"))
         page.locator("#history-chart").focus()
         page.keyboard.press("ArrowLeft")
         check("Keyboard chart tooltip exposes numerical RPM values", "RPM" in page.locator(".chart-tooltip").inner_text())
         page.locator('[data-range="1h"]').click()
         page.select_option("#metric-select", "temperature")
-        page.wait_for_function("document.querySelector('#history-chart svg').getAttribute('aria-label').includes('最近一小時溫度')")
+        expect(page.locator("#history-chart svg")).to_have_attribute("aria-label", re.compile("最近一小時溫度"))
 
         run_scenario(page, "hot")
         check("High-temperature scenario turns the machine red and raises an alarm",

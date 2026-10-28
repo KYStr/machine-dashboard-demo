@@ -1,5 +1,8 @@
 @import url("./styles-base.css");
 
+.about-content{max-width:900px;padding-top:54px}.about-content h1{font-size:34px;line-height:1.5;margin-bottom:20px}.about-lead{font-size:17px;color:var(--muted);line-height:1.9}.about-content section{margin:38px 0}.about-content section h2{font-size:20px;margin-bottom:14px}.about-content section p{font-size:14px;color:var(--muted);line-height:1.95;margin:12px 0}.about-content>.button{margin-top:10px}.rpm-unit{font-size:.85em}
+@media(max-width:680px){.about-content{padding-top:30px}.about-content h1{font-size:25px}.about-lead{font-size:14px}.about-content section h2{font-size:18px}.about-content section p{font-size:13px}.rpm-unit{display:none}}
+
 /* Readability refinements: avoid tiny desktop charts on tablet-width cards. */
 @media(min-width:681px) and (max-width:1200px) {
   .machine-card .mini-charts {
