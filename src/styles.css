@@ -141,3 +141,43 @@
   }
 }
 
+/* Count changes are visible and immediate, including on phone screens. */
+.machine-section { scroll-margin-top:20px; }
+.machine-demo-bar {
+  display:flex; flex-wrap:wrap; align-items:center; gap:14px;
+  padding:14px 16px; margin-bottom:18px; border:1px solid #dbe7ff;
+  border-radius:12px; background:var(--blue-soft);
+}
+.machine-demo-copy { flex:1; min-width:180px; }
+.machine-demo-copy strong { display:block; font-size:14px; }
+.machine-demo-copy span { display:block; margin-top:3px; color:var(--muted); font-size:11px; }
+.machine-count-options { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; }
+.machine-count-options button {
+  min-width:58px; min-height:44px; padding:8px 12px; border:1px solid var(--line);
+  border-radius:8px; background:var(--surface); color:var(--ink); font-weight:650;
+}
+.machine-count-options button.active { color:#fff; border-color:var(--blue); background:var(--blue); box-shadow:0 2px 7px #246bfd20; }
+.machine-demo-bar[aria-busy="true"] .machine-demo-copy span { color:var(--blue); }
+.machine-visibility-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:12px; min-height:26px; }
+.machine-visibility-row p { color:var(--muted); font-size:12px; }
+.machine-visibility-actions { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+.machine-visibility-actions .button { min-height:36px; padding:6px 12px; }
+.pagination { flex-wrap:wrap; }
+.form-field small { font-size:11px; line-height:1.6; font-weight:400; color:var(--muted); }
+.settings-count-status { background:var(--blue-soft); color:var(--blue); font-size:12px; padding:10px 12px; border-radius:8px; margin-bottom:10px; }
+.settings-count-status.failed { background:var(--red-soft); color:var(--red); }
+.settings-view-machines { min-height:42px; margin-bottom:14px; }
+@media(max-width:680px) {
+  .machine-demo-bar { position:relative; padding:12px; gap:12px; margin-bottom:14px; }
+  .machine-demo-copy { flex-basis:100%; padding-right:70px; min-width:0; }
+  .machine-demo-copy strong { font-size:13px; }
+  .machine-demo-copy span { font-size:11px; }
+  .machine-count-options { width:100%; }
+  .machine-count-options button { min-width:0; min-height:44px; padding:8px; font-size:13px; }
+  .demo-advanced { position:absolute; top:9px; right:12px; min-height:36px; font-size:11px; }
+  .demo-advanced .icon { display:none; }
+  .machine-visibility-row { align-items:flex-start; gap:8px; }
+  .machine-visibility-actions:has(button:not([hidden])) { width:100%; justify-content:space-between; }
+  .machine-visibility-row p { font-size:12px; line-height:1.7; }
+  .machine-visibility-actions .button { min-height:40px; }
+}

@@ -18,12 +18,13 @@ const state = {
   range: '1h', metric: 'temperature', ids: ['MC-001', 'MC-002', 'MC-003'],
   history: null, alertFilter: 'all', alertVisible: 50, detailId: null,
   connection: { mode: 'connecting', connected: false }, seenAlerts: null,
-  historyRequest: 0, tooltipIndex: null, theme: 'light',
+  historyRequest: 0, tooltipIndex: null, theme: 'light', configPending: false,
 };
-const client = new DemoDataClient({ onSnapshot: receiveSnapshot, onConnection: receiveConnection, preferLocal: Boolean(window.__PORTABLE_DEMO__) });
+const client = new DemoDataClient({ onSnapshot: receiveSnapshot, onConnection: receiveConnection, preferLocal: Boolean(window.__PORTABLE_DEMO__ || window.Capacitor?.isNativePlatform?.()) });
 let installPrompt = null;
 let resizeTimer;
 let pendingHistoryTimer;
+let settingsRevealOnClose = false;
 
 function readPreference(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } }
 function writePreference(key, value) { try { localStorage.setItem(key, value); } catch { /* Private browsing can disable storage. */ } }
@@ -74,7 +75,10 @@ function receiveSnapshot(snapshot) {
   $('#date-display').textContent = chartDate(snapshot.generatedAt);
   $('#update-interval').textContent = snapshot.paused ? '模擬已暫停' : `每 ${snapshot.intervalMs / 1000} 秒更新`;
   renderConnection(); renderSummary(); renderMachines(); renderAlerts();
-  if (oldCount !== snapshot.machines.length) renderHistoryPicker();
+  if (oldCount !== snapshot.machines.length) {
+    renderHistoryPicker(); renderScenarioPicker();
+    $('#demo-count').value = String(snapshot.machines.length);
+  }
   if (state.detailId && $('#detail-dialog').open) renderDetail();
   clearTimeout(pendingHistoryTimer);
   pendingHistoryTimer = setTimeout(() => loadHistory(), first ? 0 : 120);
@@ -95,7 +99,7 @@ function machineCard(m) {
   const minis = ['temperature', 'rpm', 'output'].map(metric => {
     const color = metric === 'temperature' ? tempColor : metric === 'rpm' ? '#246bfd' : '#0eaa9e';
     const points = m.recent.map(p => ({ t: p.t, value: p[metric] }));
-    return `<div class="mini-chart"><div class="mini-chart-header"><span>${metric === 'temperature' ? '溫度 (°C)' : metric === 'rpm' ? '轉速 (RPM)' : '產出 (件／分)'}</span><span style="color:${color}">${numberText(m[metric], metric)}</span></div>${lineChart([{ id: m.id, name: m.name, points }], { metric, width: 180, height: 105, mini: true, colorOverride: color, thresholds: metric === 'temperature' ? [m.threshold] : [], title: `${m.name}${METRICS[metric].label}即時趨勢` })}</div>`;
+    return `<div class="mini-chart"><div class="mini-chart-header"><span>${metric === 'temperature' ? '溫度 (°C)' : metric === 'rpm' ? '轉速 (RPM)' : '產出 (件／分)'}</span><span style="color:${color}">${numberText(m[metric], metric)}</span></div>${lineChart([{ id: m.id, name: m.name, points }], { metric, width: 140, height: 108, mini: true, colorOverride: color, thresholds: metric === 'temperature' ? [m.threshold] : [], title: `${m.name}${METRICS[metric].label}即時趨勢` })}</div>`;
   }).join('');
   return `<article class="machine-card ${m.status}" data-machine-id="${m.id}"><div class="machine-card-header"><span class="machine-avatar">${icon('settings')}</span><div class="machine-heading"><button class="machine-name" data-detail="${m.id}" aria-label="查看${escapeHtml(m.name)}詳細數據">${escapeHtml(m.name)}</button><p class="machine-subtitle">${escapeHtml(m.kind)} · ${escapeHtml(m.line)}</p></div>${badge(m)}</div>${metricCards(m)}<div class="mini-charts">${minis}</div><div class="mobile-spark"><div class="spark-caption"><span>溫度走勢</span><span>近 10 分鐘</span></div>${sparkline(m.recent.map(p => ({ t: p.t, value: p.temperature })), { color: tempColor })}</div><div class="machine-foot"><span>${escapeHtml(m.id)} · 模擬資料</span><span>詳細數據${icon('chevron')}</span></div></article>`;
 }
@@ -103,11 +107,24 @@ function renderMachines() {
   if (!state.snapshot) return;
   const list = state.snapshot.machines.filter(m => (state.status === 'all' || m.status === state.status) && `${m.name} ${m.id} ${m.kind} ${m.line}`.toLowerCase().includes(state.query.toLowerCase().trim()));
   const focusedMachine = document.activeElement?.dataset.detail;
-  $('#machine-count').textContent = `${list.length} / ${state.snapshot.machines.length} 台`;
+  const total = state.snapshot.machines.length;
+  const shown = Math.min(state.visible, list.length);
+  const filtered = state.status !== 'all' || Boolean(state.query.trim());
+  $('#machine-count').textContent = `共 ${total} 台`;
+  const visibility = `共 ${total} 台${filtered ? ` · 符合篩選 ${list.length} 台` : ''} · 已顯示 ${shown} 台${list.length > shown ? ` · 尚有 ${list.length - shown} 台` : ''}`;
+  if ($('#machine-visibility').textContent !== visibility) $('#machine-visibility').textContent = visibility;
+  $('#clear-machine-filters').hidden = !filtered;
+  $('#show-all-machines').hidden = shown >= list.length;
+  $('#show-all-machines').textContent = `顯示全部 ${list.length} 台`;
+  $$('[data-demo-count]').forEach(button => {
+    const active = Number(button.dataset.demoCount) === total;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
   const grid = $('#machine-grid');
   grid.className = `machine-grid ${state.snapshot.machines.length > 6 ? 'many' : ''} ${state.density === 'list' ? 'list' : ''}`;
   grid.innerHTML = list.length ? list.slice(0, state.visible).map(machineCard).join('') : `<div class="empty-state">${icon('search')}<strong>沒有符合條件的機台</strong><p>試試其他關鍵字，或清除目前的狀態篩選。</p><button class="button secondary" data-clear-filters>清除篩選</button></div>`;
-  $('#machine-pagination').innerHTML = list.length > 12 ? `<span>顯示 ${Math.min(state.visible, list.length)} / ${list.length} 台</span>${list.length > state.visible ? '<button class="button secondary" id="more-machines">顯示更多機台</button>' : '<button class="text-button" id="collapse-machines">收合機台</button>'}` : '';
+  $('#machine-pagination').innerHTML = list.length > 12 ? `<span>已顯示 ${shown} / ${list.length} 台</span>${list.length > state.visible ? `<button class="button secondary" id="more-machines">再顯示 ${Math.min(12, list.length - shown)} 台</button><button class="text-button" data-expand-all>顯示全部 ${list.length} 台</button>` : '<button class="text-button" id="collapse-machines">收合為前 12 台</button>'}` : '';
   if (focusedMachine) $(`[data-detail="${focusedMachine}"]`)?.focus({ preventScroll: true });
 }
 function renderAlerts() {
@@ -181,19 +198,77 @@ function setView(view, { scroll = true } = {}) {
   state.view = view; document.body.dataset.view = view;
   $('#page-title').textContent = titles[view][0]; $('#page-description').textContent = titles[view][1];
   $$('[data-view]').forEach(b => { b.classList.toggle('active', b.dataset.view === view); if (b.dataset.view === view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
-  if (location.hash !== `#${view}`) history.replaceState(null, '', `#${view}`);
+  if (location.hash !== `#${view}`) { try { history.replaceState(null, '', `#${view}`); } catch { /* Embedded previews can have an opaque origin. */ } }
   if (state.snapshot) { renderAlerts(); requestAnimationFrame(renderHistory); }
   if (scroll) window.scrollTo({ top: 0, behavior: 'instant' });
 }
-function openSettings() {
+function renderScenarioPicker() {
   if (!state.snapshot) return;
-  $('#demo-count').value = state.snapshot.machines.length;
-  $('#demo-interval').value = state.snapshot.intervalMs;
-  $('#demo-paused').checked = state.snapshot.paused;
   const prior = $('#scenario-machine').value;
   $('#scenario-machine').innerHTML = state.snapshot.machines.map(m => `<option value="${m.id}">${escapeHtml(m.name)} · ${STATUS_LABELS[m.status]}</option>`).join('');
   if (state.snapshot.machines.some(m => m.id === prior)) $('#scenario-machine').value = prior;
+}
+function openSettings() {
+  if (!state.snapshot || state.configPending) return;
+  $('#demo-count').value = state.snapshot.machines.length;
+  $('#demo-interval').value = state.snapshot.intervalMs;
+  $('#demo-paused').checked = state.snapshot.paused;
+  $('#settings-count-status').textContent = `目前已套用 ${state.snapshot.machines.length} 台機台。`;
+  $('#settings-count-status').classList.remove('failed');
+  $('#view-configured-machines').hidden = true;
+  settingsRevealOnClose = false;
+  renderScenarioPicker();
   $('#settings-dialog').showModal();
+}
+function clearMachineFilters() {
+  state.query = ''; state.status = 'all'; state.visible = 12;
+  $('#machine-search').value = ''; $('#status-filter').value = 'all';
+}
+function revealMachines() {
+  if (!['overview', 'machines'].includes(state.view)) setView('machines', { scroll: false });
+  $('#machine-section').scrollIntoView({ block: 'start', behavior: 'instant' });
+  $('#machine-demo-title').focus({ preventScroll: true });
+}
+function setConfigurationBusy(busy) {
+  state.configPending = busy;
+  $('#machine-demo-bar').setAttribute('aria-busy', String(busy));
+  $('#settings-form').setAttribute('aria-busy', String(busy));
+  $$('[data-demo-count], #demo-count, #demo-interval, #demo-paused, #settings-form [type="submit"], #trigger-alert, #resolve-alert').forEach(button => { button.disabled = busy; });
+}
+async function applyDemoConfiguration(config, { closeDialog = false } = {}) {
+  if (!state.snapshot || state.configPending) return false;
+  const previousCount = state.snapshot.machines.length;
+  const inSettings = $('#settings-dialog').open;
+  setConfigurationBusy(true);
+  $('#settings-count-status').classList.remove('failed');
+  $('#settings-count-status').textContent = '正在套用設定…';
+  if (!inSettings && config.count !== undefined) $('#machine-visibility').textContent = `正在切換為 ${config.count} 台…`;
+  try {
+    const snapshot = await client.configure(config);
+    const count = snapshot.machines.length;
+    const countChanged = count !== previousCount;
+    if (countChanged) {
+      clearMachineFilters();
+      renderSummary(); renderMachines();
+      if (inSettings && $('#settings-dialog').open) settingsRevealOnClose = true;
+      else if (inSettings) revealMachines();
+    }
+    $('#demo-count').value = String(count);
+    const summary = countChanged ? `已套用 ${count} 台機台${count > 12 ? '；先顯示 12 台，可按「顯示全部」' : '，全部顯示'}。` : `目前共 ${count} 台機台，更新設定已套用。`;
+    $('#settings-count-status').textContent = countChanged ? `${summary} 已清除機台篩選。` : summary;
+    $('#view-configured-machines').hidden = !countChanged;
+    if (closeDialog) $('#settings-dialog').close();
+    // Dialogs cover the toast layer; keep feedback inside the dialog as well.
+    toast(countChanged ? `已切換為 ${count} 台機台` : '展示設定已更新', { detail: countChanged ? summary : '' });
+    return true;
+  } catch (error) {
+    $('#demo-count').value = String(state.snapshot.machines.length);
+    $('#settings-count-status').textContent = `套用失敗：${error.message}。保留目前 ${state.snapshot.machines.length} 台，請重試。`;
+    $('#settings-count-status').classList.add('failed');
+    renderMachines();
+    toast(`設定失敗：${error.message}`, { level: 'critical', detail: '沒有切換成功，畫面保留目前的機台數量。' });
+    return false;
+  } finally { setConfigurationBusy(false); }
 }
 function renderDetail() {
   const m = state.snapshot?.machines.find(m => m.id === state.detailId);
@@ -231,6 +306,7 @@ function wireEvents() {
     const button = event.target.closest('button');
     if (!button) return;
     if (button.dataset.view) return setView(button.dataset.view);
+    if (button.dataset.demoCount) return applyDemoConfiguration({ count: Number(button.dataset.demoCount) });
     if (button.hasAttribute('data-open-settings')) return openSettings();
     if (button.hasAttribute('data-close-dialog')) return button.closest('dialog').close();
     if (button.dataset.detail) { state.detailId = button.dataset.detail; $('#detail-dialog').showModal(); renderDetail(); return; }
@@ -242,9 +318,10 @@ function wireEvents() {
       else { if (state.ids.length === 6) return toast('最多同時比較六台機台，請先取消一台。'); state.ids.push(id); }
       renderHistoryPicker(); loadHistory(); return;
     }
-    if (button.hasAttribute('data-clear-filters')) { state.query = ''; state.status = 'all'; $('#machine-search').value = ''; $('#status-filter').value = 'all'; renderSummary(); renderMachines(); }
+    if (button.hasAttribute('data-clear-filters')) { clearMachineFilters(); renderSummary(); renderMachines(); }
+    if (button.hasAttribute('data-expand-all')) { state.visible = state.snapshot.machines.length; renderMachines(); }
     if (button.id === 'more-machines') { state.visible += 12; renderMachines(); }
-    if (button.id === 'collapse-machines') { state.visible = 12; renderMachines(); }
+    if (button.id === 'collapse-machines') { state.visible = 12; renderMachines(); revealMachines(); }
     if (button.id === 'more-alerts') { state.alertVisible += 50; renderAlerts(); }
   });
   $('#machine-search').addEventListener('input', e => { state.query = e.target.value; state.visible = 12; renderMachines(); });
@@ -255,13 +332,15 @@ function wireEvents() {
   $('#all-alerts').onclick = () => setView('alerts');
   $('#theme-button').onclick = () => setTheme(state.theme === 'light' ? 'dark' : 'light');
   $('#refresh-button').onclick = async () => { try { await client.refresh(); await loadHistory(); toast('已重新整理最新模擬資料'); } catch (error) { toast(`無法更新：${error.message}`, { level: 'critical' }); } };
-  $('#settings-form').onsubmit = async event => {
+  $('#demo-count').onchange = () => applyDemoConfiguration({ count: Number($('#demo-count').value) });
+  $('#settings-form').onsubmit = event => {
     event.preventDefault();
-    const button = $('#settings-form [type="submit"]'); button.disabled = true;
-    try { await client.configure({ count: Number($('#demo-count').value), intervalMs: Number($('#demo-interval').value), paused: $('#demo-paused').checked }); state.visible = 12; renderMachines(); $('#settings-dialog').close(); toast('展示設定已更新'); }
-    catch (error) { toast(`設定失敗：${error.message}`, { level: 'critical' }); }
-    finally { button.disabled = false; }
+    applyDemoConfiguration({ count: Number($('#demo-count').value), intervalMs: Number($('#demo-interval').value), paused: $('#demo-paused').checked }, { closeDialog: true });
   };
+  $('#view-configured-machines').onclick = () => { settingsRevealOnClose = true; $('#settings-dialog').close(); };
+  $('#settings-dialog').addEventListener('close', () => {
+    if (settingsRevealOnClose) { settingsRevealOnClose = false; revealMachines(); }
+  });
   $('#trigger-alert').onclick = () => runScenario('hot');
   $('#resolve-alert').onclick = () => runScenario('recover');
   $('#export-csv').onclick = exportCsv;
@@ -296,6 +375,7 @@ function wireEvents() {
 }
 
 fillIcons();
+if (new URLSearchParams(location.search).get('embed') === '1') document.body.dataset.embedded = 'true';
 state.density = readPreference('machine-demo-density', 'cards') === 'list' ? 'list' : 'cards';
 setTheme(readPreference('machine-demo-theme', 'light') === 'dark' ? 'dark' : 'light');
 wireEvents();
