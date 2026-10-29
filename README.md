@@ -1,6 +1,20 @@
 # Machine Signal · 機台訊號即時看板
 
-繁體中文機台監控展示專案：響應式網頁、即時折線圖、警示紀錄、歷史查詢，以及可替換的模擬 REST／SSE 後端。**所有機台、數值與歷史事件都是模擬資料，不連接真實工廠設備。**
+## About · 專案簡介
+
+**讓機台狀態、即時趨勢與異常事件，在桌面與手機上都一目了然。**
+
+Machine Signal 是繁體中文機台監控展示專案，提供可擴充的多機台總覽、溫度／轉速／產量即時折線圖、門檻警示與解除紀錄，以及最近一小時／最近一天的歷史查詢。響應式介面支援桌面卡片與手機機台列表，搭配 Node.js REST／SSE 模擬後端，也可使用純靜態、單檔預覽與 PWA 模式展示。
+
+A responsive machine monitoring dashboard demo with live charts, threshold alerts, 24-hour history, and a Node.js REST/SSE mock backend. Built with vanilla JavaScript, with PWA support and a Capacitor wrapper configuration for future mobile packaging.
+
+**所有機台、數值與歷史事件都是模擬資料，不連接真實工廠設備。這是展示與學習用範例，不是可直接控制真實設備的工業系統；也尚未產出原生 APK／IPA。**
+
+### Topics · 專案關鍵字
+
+`machine-monitoring` · `industrial-dashboard` · `realtime-dashboard` · `data-visualization` · `time-series` · `alerts` · `simulated-data` · `mock-api` · `server-sent-events` · `nodejs` · `javascript` · `responsive-design` · `pwa` · `capacitor`
+
+以上是本專案的分類關鍵字。README 文字不會自動設定 GitHub 右側的 About／Topics；可直接套用的簡介、topics 與設定方式見 [GitHub 專案資訊設定](docs/GITHUB-ABOUT.md)。
 
 ## 啟動
 
